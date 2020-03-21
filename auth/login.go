@@ -27,8 +27,8 @@ var ErrorIncorrectLogin = errors.New("Invalid username or password")
 
 // UserLogin stores the information needed for a login attempt.
 type UserLogin struct {
-	Username string
-	Password string
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 // SavedUser represents the data stored for a signed-up user.
