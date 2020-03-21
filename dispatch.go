@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/olafal0/dispatch/auth"
 )
@@ -14,22 +16,24 @@ import (
 // token, or the token is invalid, it returns an error.
 //
 // This hook effectively acts as a requirement that the authorization token is correct.
-func AuthorizerHook(input *EndpointInput, token *auth.TokenSigner) (*EndpointInput, error) {
-	// Check for authorization header
-	if input == nil {
-		return nil, errors.New("Missing authorization token")
-	}
-	authToken := input.Ctx.Request.Header.Get("Authorization")
-	if authToken == "" {
-		return nil, errors.New("Missing authorization token")
-	}
+func AuthorizerHook(token *auth.TokenSigner) MiddlewareHook {
+	return func(input *EndpointInput) (*EndpointInput, error) {
+		// Check for authorization header
+		if input == nil {
+			return nil, errors.New("Missing authorization token")
+		}
+		authToken := input.Ctx.Request.Header.Get("Authorization")
+		if authToken == "" {
+			return nil, errors.New("Missing authorization token")
+		}
 
-	claims, err := token.ParseToken(authToken)
-	if err != nil {
-		return nil, errors.New("Invalid authorization token")
+		claims, err := token.ParseToken(authToken)
+		if err != nil {
+			return nil, errors.New("Invalid authorization token")
+		}
+		input.Ctx.Claims = claims
+		return input, nil
 	}
-	input.Ctx.Claims = claims
-	return input, nil
 }
 
 // GetHandler returns a handler function suitable for use in http.HandleFunc.
@@ -42,8 +46,19 @@ func AuthorizerHook(input *EndpointInput, token *auth.TokenSigner) (*EndpointInp
 // JSON marshalling, and error handling.
 func (api *API) GetHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		wroteHeader := 200
+		wroteStatus := http.StatusText(200)
+		startTime := time.Now()
+		defer func() {
+			log.Printf("%v %s%s - %d %s", time.Since(startTime), r.Method, r.URL.Path, wroteHeader, wroteStatus)
+		}()
+		writeError := func(w http.ResponseWriter, error string, code int) {
+			wroteHeader = code
+			wroteStatus = http.StatusText(code)
+			http.Error(w, error, code)
+		}
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "PUT, POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "PUT, POST, GET, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(200)
@@ -51,24 +66,24 @@ func (api *API) GetHandler() func(http.ResponseWriter, *http.Request) {
 		}
 		data, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		ctx := &Context{Request: r}
 		output, err := api.Call(r.Method, r.URL.Path, ctx, data)
 		if err != nil {
 			if err == ErrorNotFound {
-				http.Error(w, err.Error(), http.StatusNotFound)
+				writeError(w, err.Error(), http.StatusNotFound)
 			} else if err == ErrorBadRequest {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				writeError(w, err.Error(), http.StatusBadRequest)
 			} else {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				writeError(w, err.Error(), http.StatusInternalServerError)
 			}
 			return
 		}
 		outBytes, err := json.Marshal(output)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
