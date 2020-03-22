@@ -2,39 +2,11 @@ package dispatch
 
 import (
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/olafal0/dispatch/auth"
 )
-
-// AuthorizerHook is a middleware hook that populates the context's Claims object
-// with data from the request's authorization token. If there is no authorization
-// token, or the token is invalid, it returns an error.
-//
-// This hook effectively acts as a requirement that the authorization token is correct.
-func AuthorizerHook(token *auth.TokenSigner) MiddlewareHook {
-	return func(input *EndpointInput) (*EndpointInput, error) {
-		// Check for authorization header
-		if input == nil {
-			return nil, errors.New("Missing authorization token")
-		}
-		authToken := input.Ctx.Request.Header.Get("Authorization")
-		if authToken == "" {
-			return nil, errors.New("Missing authorization token")
-		}
-
-		claims, err := token.ParseToken(authToken)
-		if err != nil {
-			return nil, errors.New("Invalid authorization token")
-		}
-		input.Ctx.Claims = claims
-		return input, nil
-	}
-}
 
 // GetHandler returns a handler function suitable for use in http.HandleFunc.
 // For example:
@@ -69,7 +41,7 @@ func (api *API) GetHandler() func(http.ResponseWriter, *http.Request) {
 			writeError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		ctx := &Context{Request: r}
+		ctx := &Context{Request: r, Writer: w}
 		output, err := api.Call(r.Method, r.URL.Path, ctx, data)
 		if err != nil {
 			if err == ErrorNotFound {

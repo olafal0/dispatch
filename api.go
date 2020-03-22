@@ -8,8 +8,13 @@ import (
 	"reflect"
 	"runtime/debug"
 
-	"github.com/olafal0/dispatch/auth"
+	"github.com/dgrijalva/jwt-go"
 )
+
+// Claims stores the set of user claims for JWTs.
+type Claims struct {
+	jwt.StandardClaims
+}
 
 // ErrorBadRequest represents an error from a malformed request.
 var ErrorBadRequest = errors.New("Bad request")
@@ -25,9 +30,11 @@ var ErrorInternal = errors.New("Internal error")
 type Context struct {
 	// Request is the original http request.
 	Request *http.Request
+	// Writer is the original response writer.
+	Writer http.ResponseWriter
 	// PathVars is the map of path variable names to values.
 	PathVars PathVars
-	Claims   *auth.Claims
+	Claims   *Claims
 }
 
 // API is an object that holds all API methods and can dispatch them.
@@ -69,9 +76,9 @@ func (api *API) Call(method, path string, ctx *Context, input json.RawMessage) (
 	}
 	ctx.PathVars = pathVars
 
-	if endpoint.PreRequestHook != nil {
+	for _, hook := range endpoint.PreRequestHooks {
 		originalInput := &EndpointInput{method, path, ctx, input}
-		modifiedInput, err := endpoint.PreRequestHook(originalInput)
+		modifiedInput, err := hook(originalInput)
 		if err != nil {
 			return nil, err
 		}

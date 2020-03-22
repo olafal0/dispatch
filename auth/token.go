@@ -7,12 +7,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/olafal0/dispatch"
 )
-
-// Claims stores the set of user claims for JWTs.
-type Claims struct {
-	jwt.StandardClaims
-}
 
 // TokenSigner is an object providing methods for creating and validating JWTs.
 type TokenSigner struct {
@@ -33,8 +29,8 @@ func NewTokenSigner(issuer string, secret []byte) *TokenSigner {
 
 // CreateToken creates a JWT token for a user to use for authentication.
 func (ts *TokenSigner) CreateToken(username string) (string, error) {
-	claims := Claims{
-		jwt.StandardClaims{
+	claims := dispatch.Claims{
+		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 			NotBefore: time.Now().Unix(),
 			Issuer:    ts.Issuer,
@@ -47,15 +43,15 @@ func (ts *TokenSigner) CreateToken(username string) (string, error) {
 }
 
 // ParseToken verifies a token and returns its claims.
-func (ts *TokenSigner) ParseToken(tokenStr string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+func (ts *TokenSigner) ParseToken(tokenStr string) (*dispatch.Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &dispatch.Claims{}, func(t *jwt.Token) (interface{}, error) {
 		return []byte(ts.secret), nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(*Claims)
+	claims, ok := token.Claims.(*dispatch.Claims)
 	if !ok {
 		return nil, errors.New("Incorrect claims type")
 	}

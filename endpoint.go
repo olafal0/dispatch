@@ -29,7 +29,7 @@ type Endpoint struct {
 	// PreRequestHook is a middleware hook that runs before the handler. If the
 	// hook returns an error, that error will be returned and the handler will
 	// not be called.
-	PreRequestHook MiddlewareHook
+	PreRequestHooks []MiddlewareHook
 }
 
 // EndpointInput represents the input to an endpoint call. These inputs can be
@@ -64,7 +64,7 @@ func (api *API) AddEndpoint(path string, handler interface{}, hooks ...Middlewar
 	}
 	// Configure middleware hooks
 	if len(hooks) >= 1 {
-		endpoint.PreRequestHook = hooks[0]
+		endpoint.PreRequestHooks = hooks
 	}
 
 	var err error
