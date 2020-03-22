@@ -29,6 +29,8 @@ func main() {
 }
 ```
 
+For a real-world example, check out [pjournal](https://github.com/olafal0/pjournal), a fully-fledged personal journaling web app.
+
 ## API Paths
 
 Paths are expressed as a simple string, in the form:
