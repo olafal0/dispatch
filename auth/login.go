@@ -80,13 +80,16 @@ func (lm *LoginManager) AuthenticateUser(login UserLogin, ctx *dispatch.Context)
 	valid := CheckPassword(login.Password, existing.HashedPassword)
 	if valid {
 		token, err := lm.Token.CreateToken(login.Username)
+		if err != nil {
+			return err
+		}
 		// No error; login successful
 		authCookie := &http.Cookie{
 			Name:  "dispatch-auth",
 			Value: token,
 			// Secure: true,
 			HttpOnly: true,
-			SameSite: http.SameSiteDefaultMode,
+			SameSite: http.SameSiteStrictMode,
 			MaxAge:   int(time.Duration(time.Hour * 24 * 30).Seconds()), // 30 days
 		}
 		ctx.Writer.Header().Add("Set-Cookie", authCookie.String())
@@ -98,7 +101,7 @@ func (lm *LoginManager) AuthenticateUser(login UserLogin, ctx *dispatch.Context)
 			SameSite: http.SameSiteNoneMode,
 		}
 		ctx.Writer.Header().Add("Set-Cookie", loggedInCookie.String())
-		return err
+		return nil
 	}
 
 	return ErrorIncorrectLogin
@@ -112,7 +115,7 @@ func (lm *LoginManager) LogoutUser(ctx *dispatch.Context) {
 		Value: "removed",
 		// Secure: true,
 		HttpOnly: true,
-		SameSite: http.SameSiteDefaultMode,
+		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	}
 	ctx.Writer.Header().Add("Set-Cookie", authCookie.String())
